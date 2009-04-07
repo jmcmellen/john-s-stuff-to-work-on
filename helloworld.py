@@ -2,7 +2,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 class MainPage(webapp.RequestHandler):
   def get(self):
-    self.response.headers['Content-Type']= 'text/plain'
+    self.response.headers['Content-Type']= 'text/html'
     self.response.out.write('''
 <html><head><title>My app</title></head>
 <body>
