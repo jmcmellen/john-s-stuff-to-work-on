@@ -3,8 +3,8 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 class MainPage(webapp.RequestHandler):
   def get(self):
     self.response.headers['Content-Type']= 'text/html'
-    self.response.out.write('''
-<html><head><title>My app</title></head>
+    self.response.out.write('''<html><head>
+<title>My app</title></head>
 <body>
 <h1>Hello, webapp World!</h1>
 <p>What\'s going on?</p>
