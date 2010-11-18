@@ -28,13 +28,16 @@ def generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, 
 	bytebits = "{0:08b}".format( ord(byte))
 	bitstream += bytebits[::-1]
     #print bitstream
+    one_bit = generateSimplePCMToneData(markF, sampRate, bitduration, sampWidth,
+		           peakLevel, numCh)
+    zero_bit = generateSimplePCMToneData(spaceF, sampRate, bitduration, sampWidth,
+			   peakLevel, numCh)
     for bit in bitstream:
 	if bit == '1':
-	    pcm_data += generateSimplePCMToneData(markF, sampRate, bitduration, sampWidth,
-		           peakLevel, numCh)
+	    pcm_data += one_bit
 	else:
-	    pcm_data += generateSimplePCMToneData(spaceF, sampRate, bitduration, sampWidth,
-			   peakLevel, numCh)
+	    pcm_data += zero_bit
+
     return pcm_data
 
 def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sampRate, sampWidth, 
