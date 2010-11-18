@@ -1,7 +1,9 @@
 import math, struct, random
 
 def generateSimplePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh):
-    "Generate a string of binary data formatted as a PCM sample stream"
+    """Generate a string of binary data formatted as a PCM sample stream. Freq is in Hz,
+    sampRate is in Samples per second, duration is in seconds, sampWidth is in bits, 
+    peakLevel is in dBFS, and numCh is either 1 or 2."""
 
     phase = 0 * math.pi
     level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
