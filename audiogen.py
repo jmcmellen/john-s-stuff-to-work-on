@@ -1,4 +1,21 @@
-import math, struct, random
+import math, struct, random, array
+
+def changeLevelPCMdata(sampRate, sampWidth, amount, numCh, data):
+    "Apply amount of dB change to samples"
+    
+    factor = math.pow(10, (float(amount) / 20))
+    #print factor
+    samples = array.array('h', data)
+    out_data = ''
+
+    for sample in samples:
+	#print sample
+	#sample, = struct.unpack('<h', byte1 + byte2)
+	#data[i] = struct.pack('<h', int(math.floor(sample * factor)))
+        #print sample
+	out_data += struct.pack('<h', int(math.floor(sample * factor)))
+
+    return out_data
 
 def generateSimplePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh):
     """Generate a string of binary data formatted as a PCM sample stream. Freq is in Hz,
@@ -27,7 +44,8 @@ def generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, 
     for byte in stringData:
 	bytebits = "{0:08b}".format( ord(byte))
 	bitstream += bytebits[::-1]
-    #print bitstream
+	#bitstream += bytebits
+    print bitstream
     one_bit = generateSimplePCMToneData(markF, sampRate, bitduration, sampWidth,
 		           peakLevel, numCh)
     zero_bit = generateSimplePCMToneData(spaceF, sampRate, bitduration, sampWidth,
@@ -46,7 +64,7 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 
     markF = 2083.3
     spaceF = 1562.5
-    bitrate = 520.83
+    bitrate = 521
     pcm_data = ''
 
     preamble = '\xab' * 16
@@ -57,7 +75,9 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 	                 numCh, preamble + message.upper())
     eom = generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel,
 	                 numCh, preamble + endOfMessage)
-    silence = generateSimplePCMToneData(100, sampRate, 1, sampWidth, -94, numCh)
+    silence = generateSimplePCMToneData(10000, sampRate, 1, sampWidth, -94, numCh)
+    
+    pcm_data = silence + silence
 
     for i in range(3):
 	pcm_data = pcm_data + header + silence
@@ -70,17 +90,20 @@ if __name__ == "__main__":
     import wave, time
 
     freq = 2000
-    sampRate = 44100
+    sampRate = 48000
     duration = 10
     sampWidth = 16
-    peakLevel = -10
-    numCh = 1
+    peakLevel = -3
+    numCh = 2
     now = time.gmtime()
     timestamp = time.strftime('%j%H%M', now) 
     #print timestamp
 
-    data = generateEASpcmData('EAS', 'RWT', '000000', '0100', timestamp, 'KXYZ/FM', sampRate, 
+    data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
 	    sampWidth, peakLevel, numCh)
+
+    #data = changeLevelPCMdata(sampRate, sampWidth, -6, numCh, data)
+
     file = wave.open('testfile.wav', 'wb')
     file.setparams( (numCh, sampWidth/8 , sampRate, duration * sampRate, 'NONE', '') )
     file.writeframes(data)
