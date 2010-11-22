@@ -1,5 +1,22 @@
 import math, struct, random, array
 
+def applyLinearFade(startVal, endVal, numCh, sampWidth, data):
+    endLvl = math.pow(10, (float(endVal) / 20))
+    startLvl = math.pow(10, (float(startVal) / 20))
+    samples = array.array('h', data)
+    out_data = ''
+    slope = (endLvl - startLvl) / (len(samples))
+    print endLvl, startLvl
+    x = 0
+
+    for sample in samples:
+        factor = slope * x + startLvl
+        #print factor
+        out_data += struct.pack('<h', int(math.floor(sample * factor)))
+        x += 1
+
+    return out_data
+
 def changeLevelPCMdata(sampRate, sampWidth, amount, numCh, data):
     "Apply amount of dB change to samples"
     
@@ -17,7 +34,7 @@ def changeLevelPCMdata(sampRate, sampWidth, amount, numCh, data):
 
     return out_data
 
-def generateSimplePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh):
+def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth, peakLevel, numCh):
     """Generate a string of binary data formatted as a PCM sample stream. Freq is in Hz,
     sampRate is in Samples per second, duration is in seconds, sampWidth is in bits, 
     peakLevel is in dBFS, and numCh is either 1 or 2."""
@@ -25,11 +42,13 @@ def generateSimplePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, nu
     phase = 0 * math.pi
     level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
     pcm_data = ''
+    freq = startfreq
+
 
     for i in range(0, int(math.floor(sampRate * duration))):
-	for ch in range(numCh):
-	    pcm_data += struct.pack('<h', int(math.ceil( level * math.sin(
-	             (freq * 2 * math.pi * i)/ sampRate + phase) )))
+        for ch in range(numCh):
+	        pcm_data += struct.pack('<h', int(math.ceil( level * math.sin(
+	                   (freq * 2 * math.pi * i)/ sampRate + phase) )))
 
     return pcm_data
 
@@ -46,9 +65,9 @@ def generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, 
 	bitstream += bytebits[::-1]
 	#bitstream += bytebits
     print bitstream
-    one_bit = generateSimplePCMToneData(markF, sampRate, bitduration, sampWidth,
+    one_bit = generateSimplePCMToneData(markF, markF, sampRate, bitduration, sampWidth,
 		           peakLevel, numCh)
-    zero_bit = generateSimplePCMToneData(spaceF, sampRate, bitduration, sampWidth,
+    zero_bit = generateSimplePCMToneData(spaceF, spaceF, sampRate, bitduration, sampWidth,
 			   peakLevel, numCh)
     for bit in bitstream:
 	if bit == '1':
@@ -89,8 +108,8 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 if __name__ == "__main__":
     import wave, time
 
-    freq = 2000
-    sampRate = 48000
+    freq = 1000
+    sampRate = 44100
     duration = 10
     sampWidth = 16
     peakLevel = -3
@@ -99,9 +118,10 @@ if __name__ == "__main__":
     timestamp = time.strftime('%j%H%M', now) 
     #print timestamp
 
-    data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
-	    sampWidth, peakLevel, numCh)
-
+    #data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
+	#    sampWidth, peakLevel, numCh)
+    data = generateSimplePCMToneData(freq, freq, sampRate, duration, sampWidth, peakLevel, numCh)
+    data = applyLinearFade(-100, 0, numCh, sampWidth, data)
     #data = changeLevelPCMdata(sampRate, sampWidth, -6, numCh, data)
 
     file = wave.open('testfile.wav', 'wb')
