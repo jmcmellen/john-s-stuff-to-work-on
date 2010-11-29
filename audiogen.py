@@ -74,7 +74,7 @@ def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth,
     freq = startfreq
     #print duration * sampRate
 
-    for i in range(0, int(math.floor(sampRate * duration))):
+    for i in range(0, int(round(sampRate * duration))):
         for ch in range(numCh):
 	    sample =  int(( level * math.sin(
 	                   (freq * 2 * math.pi * i)/ sampRate + phase) ))
@@ -108,13 +108,109 @@ def generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, 
 
     return pcm_data
 
+def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
+	         stringData):
+    "Generate a string of binary data of AFSK audio"
+
+    x = 0
+    c = 0
+    cor = 0
+    pcm_data = ''
+    bitstream = ''
+    make_fractional = False
+    phase = 0 * math.pi
+    level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
+    bitduration, bitextra = divmod(sampRate, bitrate)
+    print bitduration, bitextra / bitrate, sampRate / bitrate
+    
+    print stringData
+    for byte in stringData:
+	bytebits = "{0:08b}".format( ord(byte))
+	bitstream += bytebits[::-1]
+	#bitstream += bytebits
+    print bitstream
+    #bitstream = '10'
+    
+    for bit in bitstream:
+	if make_fractional:
+	    #print last_bit + bit
+	    if last_bit + bit == '01':
+		freq = bitextra / bitrate * (markF - spaceF) + spaceF
+	    if last_bit + bit == '10':
+		freq = bitextra / bitrate * (spaceF - markF) + markF
+	    #print freq
+	    sample = int(( level * math.sin(
+		     (freq * 2 * math.pi * x)/ sampRate + phase) ))
+	    #print sample
+	    pcm_data += struct.pack('<h', sample)
+	x = 0
+	if bit == '1':
+	    freq = markF
+	else:
+	    freq = spaceF
+	for i in range(int(bitduration)+1):
+	    sample =  int(( level * math.sin(
+	              (freq * 2 * math.pi * (x + cor)/ sampRate + phase) )))
+	    print sample
+	    pcm_data += struct.pack('<h', sample)
+	    x += 1
+	    #print x
+	cor -= 1 - (bitextra / bitrate)
+	if cor < -1: cor = 0
+	#print cor
+	#phase = phase + (bitextra / bitrate / sampRate * 2 * math.pi)
+	#print phase
+	if bitextra > 0:
+	    make_fractional = False
+	    last_bit = bit
+    
+    return pcm_data
+
+def genFMwaveform(carrierF, modF, sampRate, sampWidth, peakLevel, dev, duration, numCh):
+    pcm_data = ''
+    c = 0
+    x = 0
+    sample = 0
+    phase = 0 * math.pi
+    level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
+    bitduration = round(sampRate / modF)
+    bitstream = ''
+    stringData = '\xab' * 16
+    stringData += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
+    print stringData
+    for byte in stringData:
+	bytebits = "{0:08b}".format( ord(byte))
+	bitstream += bytebits[::-1]
+	#bitstream += bytebits
+    print bitstream
+
+    for i in range(0, int(math.floor(sampRate * duration))):
+	#phase = dev * math.sin(
+	#	    (modF * 2 * math.pi * i) / sampRate)
+        if c > (len(bitstream) - 1): c = 0
+	phase = dev * int(bitstream[c])
+	x += 1
+	if x == (bitduration + 1):
+	    c += 1
+	    x = 0
+	#phase = dev * 0
+	#freq = carrierF + (dev * 0)
+	freq = carrierF
+	for ch in range(numCh):
+	    sample =  int(( level * math.sin(
+	                   (freq * 2 * math.pi * i)/ sampRate + phase) ))
+	    #print sample
+	    pcm_data += struct.pack('<h', sample)
+
+    return pcm_data
+
 def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sampRate, sampWidth, 
 	                peakLevel, numCh):
     "Put together info to generate an EAS message"
 
     markF = 2083.3
     spaceF = 1562.5
-    bitrate = 521
+    bitrate = 520.0
     pcm_data = ''
 
     preamble = '\xab' * 16
@@ -140,11 +236,11 @@ if __name__ == "__main__":
     import wave, time
 
     freq = 1209
-    sampRate = 48000
+    sampRate = 44100
     duration = 10
     sampWidth = 16
-    peakLevel = -20
-    numCh = 2
+    peakLevel = -10
+    numCh = 1
     now = time.gmtime()
     timestamp = time.strftime('%j%H%M', now) 
     #dtmf_seq = ' 1 2 3 4 5 6 7 8 9 A B C D * # '
@@ -152,7 +248,11 @@ if __name__ == "__main__":
     #dtmf_seq = '1234'
     #dtmf_seq = '1'
     #print timestamp
+    easmsg = '\xab' * 16
+    easmsg += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
 
+    #data = genFMwaveform(1562.5, 521, sampRate, sampWidth, peakLevel, 520.8, duration, numCh)
+    #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
     data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
 	    sampWidth, peakLevel, numCh)
     #data = generateSimplePCMToneData(freq, freq, sampRate, duration, sampWidth, peakLevel, numCh)
