@@ -1,5 +1,31 @@
 import math, struct, random, array
 
+def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
+    element = 1.2 / wpm #in samples
+    print element
+    pcm_data = ''
+    level = convertdbFStoInt(peakLevel, sampWidth)
+    #sequence = "... --- ... --. -.- --- .. . --. - .-"
+    silence = generateSimplePCMToneData(1000, 1000, sampRate, element, sampWidth,
+	    -110, numCh)
+
+    for a in sequence:
+	if a == ".":
+	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element,
+		    sampWidth, peakLevel, numCh)
+	    pcm_data += silence
+	elif a == "-":
+	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element * 3,
+		    sampWidth, peakLevel, numCh)
+	    pcm_data += silence
+	else:
+	    pcm_data += silence * 3
+
+    return pcm_data
+
+def convertdbFStoInt( level, sampWidth):
+    return math.pow(10, (float(level) / 20)) * 32767
+
 def makeDTMF(sequence, duration, pause, peakLevel, sampRate, sampWidth, numCh):
     dtmf_values = {
         '1':(1209, 697), '2':(1336, 697), '3':(1477, 697), 'A':(1633, 697),
@@ -69,7 +95,7 @@ def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth,
     peakLevel is in dBFS, and numCh is either 1 or 2."""
 
     phase = 0 * math.pi
-    level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
+    level = convertdbFStoInt(peakLevel, sampWidth)
     pcm_data = ''
     freq = startfreq
     #print duration * sampRate
@@ -119,8 +145,9 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
     bitstream = ''
     make_fractional = False
     phase = 0 * math.pi
-    level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
+    level = convertdbFStoInt(peakLevel, sampWidth)
     bitduration, bitextra = divmod(sampRate, bitrate)
+    d = 0
     print bitduration, bitextra / bitrate, sampRate / bitrate
     
     print stringData
@@ -129,7 +156,7 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
 	bitstream += bytebits[::-1]
 	#bitstream += bytebits
     print bitstream
-    #bitstream = '10'
+    bitstream = '1'
     
     for bit in bitstream:
 	if make_fractional:
@@ -148,16 +175,19 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
 	    freq = markF
 	else:
 	    freq = spaceF
-	for i in range(int(bitduration)+1):
+	for i in range(d, int(bitduration) + 1):
 	    sample =  int(( level * math.sin(
-	              (freq * 2 * math.pi * (x + cor)/ sampRate + phase) )))
-	    print sample
+	              (freq * 2 * math.pi * (x - cor)/ sampRate + phase) )))
+	    #print sample
 	    pcm_data += struct.pack('<h', sample)
 	    x += 1
 	    #print x
-	cor -= 1 - (bitextra / bitrate)
-	if cor < -1: cor = 0
-	#print cor
+	cor = (1 - (bitextra / bitrate)) * 0 # * 2 * math.pi / sampRate 
+	#if cor < 0: cor += 1
+	#if cor > 1: cor -= 1
+	print cor
+	#if d == 0: d = 1
+	#else: d = 0
 	#phase = phase + (bitextra / bitrate / sampRate * 2 * math.pi)
 	#print phase
 	if bitextra > 0:
@@ -168,31 +198,14 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
 
 def genFMwaveform(carrierF, modF, sampRate, sampWidth, peakLevel, dev, duration, numCh):
     pcm_data = ''
-    c = 0
-    x = 0
     sample = 0
     phase = 0 * math.pi
-    level = math.pow(10, (float(peakLevel) / 20)) * 32767 #Should depend on sampWidth
-    bitduration = round(sampRate / modF)
-    bitstream = ''
-    stringData = '\xab' * 16
-    stringData += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
-    print stringData
-    for byte in stringData:
-	bytebits = "{0:08b}".format( ord(byte))
-	bitstream += bytebits[::-1]
-	#bitstream += bytebits
-    print bitstream
+    level = convertdbFStoInt(peakLevel, sampWidth)
 
     for i in range(0, int(math.floor(sampRate * duration))):
-	#phase = dev * math.sin(
-	#	    (modF * 2 * math.pi * i) / sampRate)
-        if c > (len(bitstream) - 1): c = 0
-	phase = dev * int(bitstream[c])
-	x += 1
-	if x == (bitduration + 1):
-	    c += 1
-	    x = 0
+	phase = dev * math.sin(
+		    (modF * 2 * math.pi * i) / sampRate)
+       
 	#phase = dev * 0
 	#freq = carrierF + (dev * 0)
 	freq = carrierF
@@ -210,7 +223,7 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 
     markF = 2083.3
     spaceF = 1562.5
-    bitrate = 520.0
+    bitrate = 520.5
     pcm_data = ''
 
     preamble = '\xab' * 16
@@ -235,7 +248,7 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 if __name__ == "__main__":
     import wave, time
 
-    freq = 1209
+    freq = 1000
     sampRate = 44100
     duration = 10
     sampWidth = 16
@@ -251,10 +264,11 @@ if __name__ == "__main__":
     easmsg = '\xab' * 16
     easmsg += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
 
-    #data = genFMwaveform(1562.5, 521, sampRate, sampWidth, peakLevel, 520.8, duration, numCh)
+    data = makeMorse("--- ... ---", 20, freq, peakLevel, sampRate, sampWidth, numCh)
+    #data = genFMwaveform(1562.5, 0.5, sampRate, sampWidth, peakLevel, 10000, duration, numCh)
     #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
-    data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
-	    sampWidth, peakLevel, numCh)
+    #data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
+	#    sampWidth, peakLevel, numCh)
     #data = generateSimplePCMToneData(freq, freq, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = applyLinearFade(-100, 0, numCh, sampWidth, data)
     #data = changeLevelPCMdata(sampRate, sampWidth, -6, numCh, data)
