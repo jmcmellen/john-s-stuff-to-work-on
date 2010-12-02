@@ -3,13 +3,26 @@ import math, struct, random, array
 def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
     element = 1.2 / wpm #in samples
     print element
+    alphabet = {'a':'.-', 'b':'-...', 'c':'-.-.', 'd':'-..', 'e':'.',
+	        'f':'..-.', 'g':'--.', 'h':'....', 'i':'..', 'j':'.---',
+		'k':'-.-', 'l':'.-..', 'm':'--', 'n':'-.', 'o':'---',
+		'p':'.--.', 'q':'--.-', 'r':'.-.', 's':'...', 't':'-',
+		'u':'..-', 'v':'...-', 'w':'.--', 'x':'-..-', 'y':'-.--',
+		'z':'--..', '1':'.----', '2':'..---', '3':'...--',
+		'4':'....-', '5':'.....', '6':'-....', '7':'--...',
+		'8':'---..', '9':'----.', '0':'-----' }
     pcm_data = ''
+    ditdahs = ''
     level = convertdbFStoInt(peakLevel, sampWidth)
     #sequence = "... --- ... --. -.- --- .. . --. - .-"
     silence = generateSimplePCMToneData(1000, 1000, sampRate, element, sampWidth,
 	    -110, numCh)
 
-    for a in sequence:
+    for a in sequence.lower():
+	if a == ' ': ditdahs += '|'
+	else: ditdahs = ditdahs + alphabet[a] + ' '
+
+    for a in ditdahs:
 	if a == ".":
 	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element,
 		    sampWidth, peakLevel, numCh)
@@ -18,8 +31,10 @@ def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
 	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element * 3,
 		    sampWidth, peakLevel, numCh)
 	    pcm_data += silence
-	else:
+	elif a == " ":
 	    pcm_data += silence * 3
+	elif a == "|":
+	    pcm_data += silence * 7
 
     return pcm_data
 
@@ -248,7 +263,7 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 if __name__ == "__main__":
     import wave, time
 
-    freq = 1000
+    freq = 1525
     sampRate = 44100
     duration = 10
     sampWidth = 16
@@ -264,7 +279,7 @@ if __name__ == "__main__":
     easmsg = '\xab' * 16
     easmsg += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
 
-    data = makeMorse("--- ... ---", 20, freq, peakLevel, sampRate, sampWidth, numCh)
+    data = makeMorse("Four score and seven years ago", 25, freq, peakLevel, sampRate, sampWidth, numCh)
     #data = genFMwaveform(1562.5, 0.5, sampRate, sampWidth, peakLevel, 10000, duration, numCh)
     #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
     #data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
