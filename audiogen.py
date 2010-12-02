@@ -1,5 +1,7 @@
 import math, struct, random, array
 
+pi = math.pi
+
 def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
     element = 1.2 / wpm #in samples
     print element
@@ -48,7 +50,7 @@ def makeDTMF(sequence, duration, pause, peakLevel, sampRate, sampWidth, numCh):
 	'7':(1209, 852), '8':(1336, 852), '9':(1477, 852), 'C':(1633, 852),
 	'*':(1209, 941), '0':(1336, 941), '#':(1477, 941), 'D':(1633, 941) }
     data_out = ''
-    phase = 0 * math.pi
+    phase = 0 * pi
     level = math.pow(10, (float(peakLevel - 6) / 20)) * 32767
 
     for a in sequence:
@@ -62,9 +64,9 @@ def makeDTMF(sequence, duration, pause, peakLevel, sampRate, sampWidth, numCh):
 	    for i in range(0, int(math.floor(sampRate * duration))):
 		for ch in range(numCh):
 		    sample =  int(math.ceil( level * math.sin(
-	                   (freq1 * 2 * math.pi * i)/ sampRate + phase) )) 
+	                   (freq1 * 2 * pi * i)/ sampRate + phase) )) 
 		    sample += int(math.ceil( level * math.sin(
-			   (freq2 * 2 * math.pi * i)/ sampRate + phase) ))
+			   (freq2 * 2 * pi * i)/ sampRate + phase) ))
 		    #print sample
 		    data_out += struct.pack('<h', sample)
 	    
@@ -104,12 +106,39 @@ def changeLevelPCMdata(sampRate, sampWidth, amount, numCh, data):
 
     return out_data
 
+def genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh):
+    def saw(t):
+	return 2 * (t/(pi * 2) - math.floor(t/(pi * 2) + 0.5))
+
+    def tri(t):
+	return math.fabs(saw(t)) * 2 - 1
+
+    def squ(t):
+	sign = math.sin(t)
+	if sign > 0 : return 1
+	if sign < 0 : return -1
+	else: return 0
+
+    phase = 0
+    level = convertdbFStoInt(peakLevel, sampWidth)
+    pcm_data = ''
+    #freq = startfreq
+    #print duration * sampRate
+
+    for i in range(0, int(round(sampRate * duration))):
+        for ch in range(numCh):
+	    sample =  int(( level * squ((freq * 2 * pi * i)/ sampRate + phase) ))
+	    #print sample
+	    pcm_data += struct.pack('<h', sample)
+
+    return pcm_data
+
 def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth, peakLevel, numCh):
     """Generate a string of binary data formatted as a PCM sample stream. Freq is in Hz,
     sampRate is in Samples per second, duration is in seconds, sampWidth is in bits, 
     peakLevel is in dBFS, and numCh is either 1 or 2."""
 
-    phase = 0 * math.pi
+    phase = 0 * pi
     level = convertdbFStoInt(peakLevel, sampWidth)
     pcm_data = ''
     freq = startfreq
@@ -118,7 +147,7 @@ def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth,
     for i in range(0, int(round(sampRate * duration))):
         for ch in range(numCh):
 	    sample =  int(( level * math.sin(
-	                   (freq * 2 * math.pi * i)/ sampRate + phase) ))
+	                   (freq * 2 * pi * i)/ sampRate + phase) ))
 	    #print sample
 	    pcm_data += struct.pack('<h', sample)
 
@@ -159,7 +188,7 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
     pcm_data = ''
     bitstream = ''
     make_fractional = False
-    phase = 0 * math.pi
+    phase = 0 * pi
     level = convertdbFStoInt(peakLevel, sampWidth)
     bitduration, bitextra = divmod(sampRate, bitrate)
     d = 0
@@ -182,7 +211,7 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
 		freq = bitextra / bitrate * (spaceF - markF) + markF
 	    #print freq
 	    sample = int(( level * math.sin(
-		     (freq * 2 * math.pi * x)/ sampRate + phase) ))
+		     (freq * 2 * pi * x)/ sampRate + phase) ))
 	    #print sample
 	    pcm_data += struct.pack('<h', sample)
 	x = 0
@@ -192,18 +221,18 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
 	    freq = spaceF
 	for i in range(d, int(bitduration) + 1):
 	    sample =  int(( level * math.sin(
-	              (freq * 2 * math.pi * (x - cor)/ sampRate + phase) )))
+	              (freq * 2 * pi * (x - cor)/ sampRate + phase) )))
 	    #print sample
 	    pcm_data += struct.pack('<h', sample)
 	    x += 1
 	    #print x
-	cor = (1 - (bitextra / bitrate)) * 0 # * 2 * math.pi / sampRate 
+	cor = (1 - (bitextra / bitrate)) * 0 # * 2 * pi / sampRate 
 	#if cor < 0: cor += 1
 	#if cor > 1: cor -= 1
 	print cor
 	#if d == 0: d = 1
 	#else: d = 0
-	#phase = phase + (bitextra / bitrate / sampRate * 2 * math.pi)
+	#phase = phase + (bitextra / bitrate / sampRate * 2 * pi)
 	#print phase
 	if bitextra > 0:
 	    make_fractional = False
@@ -214,19 +243,19 @@ def generateAFSK(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, numCh,
 def genFMwaveform(carrierF, modF, sampRate, sampWidth, peakLevel, dev, duration, numCh):
     pcm_data = ''
     sample = 0
-    phase = 0 * math.pi
+    phase = 0 * pi
     level = convertdbFStoInt(peakLevel, sampWidth)
 
     for i in range(0, int(math.floor(sampRate * duration))):
 	phase = dev * math.sin(
-		    (modF * 2 * math.pi * i) / sampRate)
+		    (modF * 2 * pi * i) / sampRate)
        
 	#phase = dev * 0
 	#freq = carrierF + (dev * 0)
 	freq = carrierF
 	for ch in range(numCh):
 	    sample =  int(( level * math.sin(
-	                   (freq * 2 * math.pi * i)/ sampRate + phase) ))
+	                   (freq * 2 * pi * i)/ sampRate + phase) ))
 	    #print sample
 	    pcm_data += struct.pack('<h', sample)
 
@@ -263,7 +292,7 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 if __name__ == "__main__":
     import wave, time
 
-    freq = 1525
+    freq = 1025
     sampRate = 44100
     duration = 10
     sampWidth = 16
@@ -279,7 +308,8 @@ if __name__ == "__main__":
     easmsg = '\xab' * 16
     easmsg += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
 
-    data = makeMorse("Four score and seven years ago", 25, freq, peakLevel, sampRate, sampWidth, numCh)
+    #data = makeMorse("Four score and seven years ago", 25, freq, peakLevel, sampRate, sampWidth, numCh)
+    data = genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = genFMwaveform(1562.5, 0.5, sampRate, sampWidth, peakLevel, 10000, duration, numCh)
     #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
     #data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
