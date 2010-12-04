@@ -73,6 +73,8 @@ def makeDTMF(sequence, duration, pause, peakLevel, sampRate, sampWidth, numCh):
     return data_out
 
 def applyLinearFade(startVal, endVal, numCh, sampWidth, data):
+    "Apply a linear fade to number of samples, does not currently handle stereo"
+
     endLvl = math.pow(10, (float(endVal) / 20))
     startLvl = math.pow(10, (float(startVal) / 20))
     samples = array.array('h', data)
@@ -106,7 +108,9 @@ def changeLevelPCMdata(sampRate, sampWidth, amount, numCh, data):
 
     return out_data
 
-def genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh):
+def genNonSinePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth, peakLevel, numCh):
+    "Implement non-sine functions: sawtooth, triangle and square"
+
     def saw(t):
 	return 2 * (t/(pi * 2) - math.floor(t/(pi * 2) + 0.5))
 
@@ -120,6 +124,7 @@ def genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
 	else: return 0
 
     phase = 0
+    freq = startfreq
     level = convertdbFStoInt(peakLevel, sampWidth)
     pcm_data = ''
     #freq = startfreq
@@ -142,10 +147,13 @@ def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth,
     level = convertdbFStoInt(peakLevel, sampWidth)
     pcm_data = ''
     freq = startfreq
+    slope = 0.5 * (endfreq - startfreq) / float(sampRate * duration)
+
     #print duration * sampRate
 
     for i in range(0, int(round(sampRate * duration))):
-        for ch in range(numCh):
+	freq = slope * i + startfreq
+	for ch in range(numCh):
 	    sample =  int(( level * math.sin(
 	                   (freq * 2 * pi * i)/ sampRate + phase) ))
 	    #print sample
@@ -293,7 +301,7 @@ if __name__ == "__main__":
     import wave, time
 
     freq = 1025
-    sampRate = 44100
+    sampRate = 48000
     duration = 10
     sampWidth = 16
     peakLevel = -10
@@ -308,16 +316,16 @@ if __name__ == "__main__":
     easmsg = '\xab' * 16
     easmsg += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
 
-    #data = makeMorse("Four score and seven years ago", 25, freq, peakLevel, sampRate, sampWidth, numCh)
-    data = genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
+    #data = makeMorse("KC0FLR Springfield MO", 25, freq, peakLevel - 15, sampRate, sampWidth, numCh)
+    #data = genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = genFMwaveform(1562.5, 0.5, sampRate, sampWidth, peakLevel, 10000, duration, numCh)
     #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
-    #data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
-	#    sampWidth, peakLevel, numCh)
-    #data = generateSimplePCMToneData(freq, freq, sampRate, duration, sampWidth, peakLevel, numCh)
+    data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
+	    sampWidth, peakLevel, numCh)
+    #data = generateSimplePCMToneData(5 * freq, 0, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = applyLinearFade(-100, 0, numCh, sampWidth, data)
     #data = changeLevelPCMdata(sampRate, sampWidth, -6, numCh, data)
-    #data = makeDTMF(dtmf_seq, 0.3, 0.08, peakLevel, sampRate, sampWidth, numCh)
+    #data = makeDTMF(dtmf_seq, 0.05, 0.03, peakLevel, sampRate, sampWidth, numCh)
     file = wave.open('testfile.wav', 'wb')
     file.setparams( (numCh, sampWidth/8 , sampRate, duration * sampRate, 'NONE', '') )
     file.writeframes(data)
