@@ -2,6 +2,45 @@ import math, struct, random, array
 
 pi = math.pi
 
+def getFIRrectFilterCoeff(fc, sampRate, filterLen=20):
+    'Calculate FIR lowpass filter weights using rect window'
+    'y(n) = w0 * x(n) + w1 * x(n-1) + ...'
+
+    ft = float(fc) / sampRate
+    print ft
+    m = float(filterLen - 1)
+
+    weights = []
+    for n in range(filterLen):
+	try:
+	    weight = math.sin( 2 * pi * ft * (n - (m / 2))) / (pi * (n - (m / 2)))
+	    hamming = 0.54 - 0.46 * math.cos( 2 * pi * n / m)
+	    weight = weight * hamming
+	except:
+	    weight = 2 * ft
+	    hamming = 0.54 - 0.46 * math.cos( 2 * pi * n / m)
+	    weight = weight * hamming
+	    
+	weights.append(weight)
+
+    return weights
+
+def filterPCMaudio(fc, sampRate, filterLen, sampWidth, numCh, data):
+    'Run samples through a filter'
+
+    samples = array.array('h', data)
+    filtered = ""
+
+    w = getFIRrectFilterCoeff(fc, sampRate, filterLen)
+
+    for n in range(len(w), len(samples) - len(w)):
+	acc = 0
+	for i in range(len(w)):
+	    acc += w[i] * samples[n - i]
+	filtered += struct.pack('<h', int(math.floor(acc)))
+
+    return filtered
+
 def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
     element = 1.2 / wpm #in samples
     print element
@@ -26,11 +65,11 @@ def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
 
     for a in ditdahs:
 	if a == ".":
-	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element,
+	    pcm_data += genNonSinePCMToneData(tone, tone, sampRate, element,
 		    sampWidth, peakLevel, numCh)
 	    pcm_data += silence
 	elif a == "-":
-	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element * 3,
+	    pcm_data += genNonSinePCMToneData(tone, tone, sampRate, element * 3,
 		    sampWidth, peakLevel, numCh)
 	    pcm_data += silence
 	elif a == " ":
@@ -132,7 +171,7 @@ def genNonSinePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth, pea
 
     for i in range(0, int(round(sampRate * duration))):
         for ch in range(numCh):
-	    sample =  int(( level * squ((freq * 2 * pi * i)/ sampRate + phase) ))
+	    sample =  int(( level * saw((freq * 2 * pi * i)/ sampRate + phase) ))
 	    #print sample
 	    pcm_data += struct.pack('<h', sample)
 
@@ -301,7 +340,7 @@ if __name__ == "__main__":
     import wave, time
 
     freq = 1025
-    sampRate = 48000
+    sampRate = 44100
     duration = 10
     sampWidth = 16
     peakLevel = -10
@@ -315,6 +354,8 @@ if __name__ == "__main__":
     #print timestamp
     easmsg = '\xab' * 16
     easmsg += 'ZCZC-EAS-RWT-029091+0100-3300015-KXYZ/FM -'
+
+    print getFIRrectFilterCoeff(2200, 48000, 21)
 
     #data = makeMorse("KC0FLR Springfield MO", 25, freq, peakLevel - 15, sampRate, sampWidth, numCh)
     #data = genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
@@ -331,4 +372,9 @@ if __name__ == "__main__":
     file.writeframes(data)
     file.close()
 
+    data = filterPCMaudio(4000, sampRate, 29, sampWidth, numCh, data)
+    file = wave.open('testfile-filt.wav', 'wb')
+    file.setparams( (numCh, sampWidth/8 , sampRate, duration * sampRate, 'NONE', '') )
+    file.writeframes(data)
+    file.close()
     #data = generateAFSKpcmData(2083.33, 1562.5, 521, sampRate, sampWidth, peakLevel, numCh, message)
