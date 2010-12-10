@@ -3,7 +3,7 @@ import math, struct, random, array
 pi = math.pi
 
 def getFIRrectFilterCoeff(fc, sampRate, filterLen=20):
-    'Calculate FIR lowpass filter weights using rect window'
+    'Calculate FIR lowpass filter weights using hamming window'
     'y(n) = w0 * x(n) + w1 * x(n-1) + ...'
 
     ft = float(fc) / sampRate
