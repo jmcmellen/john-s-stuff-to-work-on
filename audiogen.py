@@ -41,6 +41,28 @@ def filterPCMaudio(fc, sampRate, filterLen, sampWidth, numCh, data):
 
     return filtered
 
+def recursiveFilterPCMaudio(fc, sampRate, sampWidth, numCh, data):
+    'Predefined filter values, Butterworth lowpass filter'
+    
+    a0 = 0.02008337 #0.01658193
+    a1 = 0.04016673 #0.03316386
+    a2 = a0
+    b1 = -1.56101808 #-1.60413018
+    b2 = 0.64135154 #0.67045791
+
+    samples = array.array('h', data)
+    filtered = data[0:2]
+    y = [0, 0, 0]
+
+    for n in range(2, len(samples) - 2):
+	sample = (a0 * samples[n] + a1 * samples[n -1] + a2 * samples[n-2] -
+		    b1 * y[1] - b2 * y[2])
+	y[2] = y[1]
+	y[1] = sample
+	filtered += struct.pack('<h', int(math.floor(sample)))
+
+    return filtered
+
 def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
     element = 1.2 / wpm #in samples
     print element
@@ -338,6 +360,7 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
 
 if __name__ == "__main__":
     import wave, time
+    from scipy.signal import firwin, iirfilter
 
     freq = 1025
     sampRate = 44100
@@ -361,9 +384,9 @@ if __name__ == "__main__":
     #data = genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = genFMwaveform(1562.5, 0.5, sampRate, sampWidth, peakLevel, 10000, duration, numCh)
     #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
-    data = generateEASpcmData('EAS', 'RWT', '029091', '0030', timestamp, 'KXYZ/FM', sampRate, 
+    data = generateEASpcmData('EAS', 'RWT', '029077', '0030', timestamp, 'KXYZ/FM', sampRate, 
 	    sampWidth, peakLevel, numCh)
-    #data = generateSimplePCMToneData(5 * freq, 0, sampRate, duration, sampWidth, peakLevel, numCh)
+    #data = generateSimplePCMToneData(10 * freq, 0, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = applyLinearFade(-100, 0, numCh, sampWidth, data)
     #data = changeLevelPCMdata(sampRate, sampWidth, -6, numCh, data)
     #data = makeDTMF(dtmf_seq, 0.05, 0.03, peakLevel, sampRate, sampWidth, numCh)
@@ -372,9 +395,13 @@ if __name__ == "__main__":
     file.writeframes(data)
     file.close()
 
-    data = filterPCMaudio(4000, sampRate, 29, sampWidth, numCh, data)
+    #data = filterPCMaudio(4000, sampRate, 29, sampWidth, numCh, data)
+    data = recursiveFilterPCMaudio(4000, sampRate, sampWidth, numCh, data)
     file = wave.open('testfile-filt.wav', 'wb')
     file.setparams( (numCh, sampWidth/8 , sampRate, duration * sampRate, 'NONE', '') )
     file.writeframes(data)
     file.close()
     #data = generateAFSKpcmData(2083.33, 1562.5, 521, sampRate, sampWidth, peakLevel, numCh, message)
+
+    print iirfilter(2, [0.1, 0.21], rp=None, rs=None, btype='lowpass', analog=0, ftype='butter', output='ba' )
+
