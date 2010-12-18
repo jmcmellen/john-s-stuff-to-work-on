@@ -87,11 +87,11 @@ def makeMorse(sequence, wpm, tone, peakLevel, sampRate, sampWidth, numCh):
 
     for a in ditdahs:
 	if a == ".":
-	    pcm_data += genNonSinePCMToneData(tone, tone, sampRate, element,
+	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element,
 		    sampWidth, peakLevel, numCh)
 	    pcm_data += silence
 	elif a == "-":
-	    pcm_data += genNonSinePCMToneData(tone, tone, sampRate, element * 3,
+	    pcm_data += generateSimplePCMToneData(tone, tone, sampRate, element * 3,
 		    sampWidth, peakLevel, numCh)
 	    pcm_data += silence
 	elif a == " ":
@@ -209,13 +209,20 @@ def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth,
     pcm_data = ''
     freq = startfreq
     slope = 0.5 * (endfreq - startfreq) / float(sampRate * duration)
+    fade_len = int(0.001 * sampRate)
+    numSamples = int( round( sampRate * duration))
 
     #print duration * sampRate
 
-    for i in range(0, int(round(sampRate * duration))):
+    for i in range(0, numSamples):
 	freq = slope * i + startfreq
+	fade = 1.0
+	if i < fade_len:
+	    fade = 0.5 * (1 - math.cos(pi * i / (fade_len - 1)))
+	elif i > (numSamples - fade_len):
+	    fade = 0.5 * (1 - math.cos(pi * (numSamples - i) / (fade_len - 1))) 
 	for ch in range(numCh):
-	    sample =  int(( level * math.sin(
+	    sample =  int(( fade * level * math.sin(
 	                   (freq * 2 * pi * i)/ sampRate + phase) ))
 	    #print sample
 	    pcm_data += struct.pack('<h', sample)
@@ -380,7 +387,7 @@ if __name__ == "__main__":
 
     print getFIRrectFilterCoeff(2200, 48000, 21)
 
-    #data = makeMorse("KC0FLR Springfield MO", 25, freq, peakLevel - 15, sampRate, sampWidth, numCh)
+    #data = makeMorse("KC0FLR Springfield MO", 25, freq, peakLevel - 1, sampRate, sampWidth, numCh)
     #data = genNonSinePCMToneData(freq, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = genFMwaveform(1562.5, 0.5, sampRate, sampWidth, peakLevel, 10000, duration, numCh)
     #data = generateAFSK(2083, 1562.5, 520.5, sampRate, sampWidth, peakLevel, numCh, easmsg)
@@ -389,7 +396,7 @@ if __name__ == "__main__":
     #data = generateSimplePCMToneData(10 * freq, 0, sampRate, duration, sampWidth, peakLevel, numCh)
     #data = applyLinearFade(-100, 0, numCh, sampWidth, data)
     #data = changeLevelPCMdata(sampRate, sampWidth, -6, numCh, data)
-    #data = makeDTMF(dtmf_seq, 0.05, 0.03, peakLevel, sampRate, sampWidth, numCh)
+    #data = makeDTMF(dtmf_seq, 0.15, 0.03, peakLevel, sampRate, sampWidth, numCh)
     file = wave.open('testfile.wav', 'wb')
     file.setparams( (numCh, sampWidth/8 , sampRate, duration * sampRate, 'NONE', '') )
     file.writeframes(data)
