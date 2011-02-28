@@ -59,6 +59,16 @@ parser.add_option("-c", "--call", dest="callsign",
 
 (options, args) = parser.parse_args()
 
+req_args = {'event':'Event code', 'fips':'FIPS Location', 
+	    'evt_dur':'Event duration', 'callsign':'Call sign or ID'}
+events = ('ean', 'eat', 'nic', 'npt', 'rmt', 'rwt', 'toa', 'tor', 'sva', 'svr',
+	  'svs', 'sps', 'ffa', 'ffw', 'ffs', 'fla', 'flw', 'fls', 'wsa', 'wsw',
+	  'bzw', 'hwa', 'hww', 'hua', 'huw', 'hls', 'tsa', 'tsw', 'evi', 'cem',
+	  'dmo', 'adr')
+originators = ('ean', 'pep', 'wxr', 'civ', 'eas')
+arg_patterns = {'event':r'|'.join(events), 'fips':r'\d{6}', 'show_version':'.*',
+	        'originator':r'|'.join(originators), 'evt_dur':r'\d{4}', 
+		'evt_ts':r'.*', 'callsign':r'.*' }
 def main():
     if options.show_version:
 	print "EASEncode Version {0}/Core version {1}".format(program_version,
@@ -78,7 +88,14 @@ def main():
 		    "{0}\nOnly WAV files are supported".format(outputfile))
 	for option, value in options.__dict__.iteritems():
 	    if value is not None:
-		print option, value
+		#print option, value
+		if not re.match(arg_patterns[option], str(value), re.I):
+		    parser.error("{0} not in proper format".format(option))
+
+	    elif option in req_args.keys():
+		parser.error("{0} must be specified.".format(
+		                 req_args[option]))
+
 	if options.originator is not None:
 	    originator = options.originator
 	else:
