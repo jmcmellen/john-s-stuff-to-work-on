@@ -34,72 +34,79 @@
 #=================================================================
 
 from eastestgen import *
-from optparse import OptionParser
+import argparse #from optparse import OptionParser
 import sys, os
 import re
+import time, wave
 
-program_version = "1.0"
+program_version = "1.1"
 
-parser = OptionParser(usage="usage: %prog [options] output.wav")
-parser.add_option("-v", "--ver", dest="show_version",
-	action="store_true", default=False,
-	help="show program version")
-parser.add_option("-o", "--org", dest="originator", 
-	help="set the message originator:")
-parser.add_option("-e", "--event", dest="event",
-	help="set the event type")
-parser.add_option("-f", "--fips", dest="fips",
-	help="set the destination fips codes")
-parser.add_option("-d", "--dur", dest="evt_dur",
-	help="set the event duration")
-parser.add_option("-t", "--start", dest="evt_ts",
+parser = argparse.ArgumentParser(description="A script to generate EAS messages")
+parser.add_argument("-v", "--ver", "--version", action='version', 
+	version="EASEncode Version {0}/Core version {1}".format(program_version,
+		eastestgen_core_version) )
+parser.add_argument("-o", "--org", dest="originator", 
+	help="set the message originator", default='EAS')
+parser.add_argument("-e", "--event", dest="event",
+	help="set the event type", required=True)
+parser.add_argument("-f", "--fips", dest="fips", nargs='+',
+	help="set the destination fips codes", required=True)
+parser.add_argument("-d", "--dur", dest="duration",
+	help="set the event duration", required=True)
+parser.add_argument("-t", "--start", dest="timestamp", default="now",
 	help="override the start timestamp, default is NOW")
-parser.add_option("-c", "--call", dest="callsign",
-	help="set the originator call letters or id")
+parser.add_argument("-c", "--call", dest="callsign",
+	help="set the originator call letters or id", required=True)
+parser.add_argument("-a", "--audio-in", dest="audioin", type=file,
+	help="insert audio file between EAS header and eom; max length"
+	" is 2 minutes")
+parser.add_argument('outputfile', metavar='OUTPUT.WAV', type=str)
 
-(options, args) = parser.parse_args()
+args = parser.parse_args()
 
-req_args = {'event':'Event code', 'fips':'FIPS Location', 
-	    'evt_dur':'Event duration', 'callsign':'Call sign or ID'}
 events = ('ean', 'eat', 'nic', 'npt', 'rmt', 'rwt', 'toa', 'tor', 'sva', 'svr',
 	  'svs', 'sps', 'ffa', 'ffw', 'ffs', 'fla', 'flw', 'fls', 'wsa', 'wsw',
 	  'bzw', 'hwa', 'hww', 'hua', 'huw', 'hls', 'tsa', 'tsw', 'evi', 'cem',
 	  'dmo', 'adr')
 originators = ('ean', 'pep', 'wxr', 'civ', 'eas')
-arg_patterns = {'event':r'|'.join(events), 'fips':r'\d{6}', 'show_version':'.*',
-	        'originator':r'|'.join(originators), 'evt_dur':r'\d{4}', 
-		'evt_ts':r'.*', 'callsign':r'.*' }
+arg_patterns = {'event':r'|'.join(events), 'fips':r'^(\d{6})(\s+\d{6})*$', 
+	        'timestamp':r'.*', 'originator':r'|'.join(originators), 
+		'duration':r'\d{4}', 'callsign':r'.*', 'audioin':r'.+\.wav', 
+		'outputfile':r'.+\.wav' }
+timeslanguage = {'now':''}
+numCh = 2
+peakLevel = -10
+sampWidth = 16
+sampRate = 44100
+
 def main():
-    if options.show_version:
-	print "EASEncode Version {0}/Core version {1}".format(program_version,
-		eastestgen_core_version)
-	if len(args) != 1:
-	    sys.exit()
-    if len(args) != 1:
-	parser.error("Output file not specified. " 
-		"Try {0} -h for detailed help."
-		.format(os.path.basename(sys.argv[0])))
-    outputfile = args[0]
+
     try:
-	if re.match(r'.*\.wav$', outputfile, re.I) is not None:
-	    pass
-	else:
-	    raise Exception("Unrecognized filename extension on file: "
-		    "{0}\nOnly WAV files are supported".format(outputfile))
-	for option, value in options.__dict__.iteritems():
+	for option, value in args.__dict__.iteritems():
 	    if value is not None:
-		#print option, value
+		if option is 'fips':
+		    value = " ".join(value)
+		print option, value
 		if not re.match(arg_patterns[option], str(value), re.I):
-		    parser.error("{0} not in proper format".format(option))
-
-	    elif option in req_args.keys():
-		parser.error("{0} must be specified.".format(
-		                 req_args[option]))
-
-	if options.originator is not None:
-	    originator = options.originator
-	else:
-	    print "Setting Originator to default value EAS"
+		    parser.error("Invalid {0} '{1}'".format(option, value ))
+	
+	for ts_pattern in timeslanguage:
+	    if re.match(ts_pattern, args.timestamp, re.I):
+		ts_val = time.strftime('%j%H%M', time.gmtime())
+		#print ts_val
+	    else:
+		ts_val = time.strftime('%j%H%M', time.gmtime())
+	if len(args.fips) > 32:
+	    print "WARNING: only 32 FIPS codes allowed. Truncating..."
+	if len(args.callsign) > 8:
+	    print "WARNING: callsign max width is 8 characters. Truncating..."
+	data = generateEASpcmData(args.originator, args.event, args.fips, 
+		args.duration, ts_val, args.callsign, sampRate, sampWidth, 
+		peakLevel, numCh)
+	file = wave.open(args.outputfile, 'wb')
+	file.setparams( (numCh, sampWidth/8 , sampRate, sampRate, 'NONE', '') )
+	file.writeframes(data)
+	file.close()
 
     except Exception as inst:
 	print inst

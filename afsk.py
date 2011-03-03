@@ -12,7 +12,7 @@ def generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel, 
 	bytebits = "{0:08b}".format( ord(byte))
 	bitstream += bytebits[::-1]
 	#bitstream += bytebits
-    print bitstream
+    #print bitstream
     one_bit = generateSimplePCMToneData(markF, markF, sampRate, bitduration, sampWidth,
 		           peakLevel, numCh)
     zero_bit = generateSimplePCMToneData(spaceF, spaceF, sampRate, bitduration, sampWidth,

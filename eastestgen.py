@@ -12,8 +12,8 @@ def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sa
     pcm_data = ''
 
     preamble = '\xab' * 16
-    message = 'ZCZC-{0}-{1}-{2}+{3}-{4}-{5: <8}-'.format(org, event, fips, eventDuration,
-	    timestamp, stationId[0:8])
+    message = 'ZCZC-{0}-{1}-{2}+{3}-{4}-{5: <8}-'.format(org, event, "-".join(fips[0:32]), 
+	    eventDuration, timestamp, stationId[0:8])
     endOfMessage = 'NNNN'
     header = generateAFSKpcmData(markF, spaceF, bitrate, sampRate, sampWidth, peakLevel,
 	                 numCh, preamble + message.upper())
