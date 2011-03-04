@@ -40,30 +40,6 @@ import re
 import time, wave
 
 program_version = "1.1"
-
-parser = argparse.ArgumentParser(description="A script to generate EAS messages")
-parser.add_argument("-v", "--ver", "--version", action='version', 
-	version="EASEncode Version {0}/Core version {1}".format(program_version,
-		eastestgen_core_version) )
-parser.add_argument("-o", "--org", dest="originator", 
-	help="set the message originator", default='EAS')
-parser.add_argument("-e", "--event", dest="event",
-	help="set the event type", required=True)
-parser.add_argument("-f", "--fips", dest="fips", nargs='+',
-	help="set the destination fips codes", required=True)
-parser.add_argument("-d", "--dur", dest="duration",
-	help="set the event duration", required=True)
-parser.add_argument("-t", "--start", dest="timestamp", default="now",
-	help="override the start timestamp, default is NOW")
-parser.add_argument("-c", "--call", dest="callsign",
-	help="set the originator call letters or id", required=True)
-parser.add_argument("-a", "--audio-in", dest="audioin", type=file,
-	help="insert audio file between EAS header and eom; max length"
-	" is 2 minutes")
-parser.add_argument('outputfile', metavar='OUTPUT.WAV', type=str)
-
-args = parser.parse_args()
-
 events = ('ean', 'eat', 'nic', 'npt', 'rmt', 'rwt', 'toa', 'tor', 'sva', 'svr',
 	  'svs', 'sps', 'ffa', 'ffw', 'ffs', 'fla', 'flw', 'fls', 'wsa', 'wsw',
 	  'bzw', 'hwa', 'hww', 'hua', 'huw', 'hls', 'tsa', 'tsw', 'evi', 'cem',
@@ -73,7 +49,37 @@ arg_patterns = {'event':r'|'.join(events), 'fips':r'^(\d{6})(\s+\d{6})*$',
 	        'timestamp':r'.*', 'originator':r'|'.join(originators), 
 		'duration':r'\d{4}', 'callsign':r'.*', 'audioin':r'.+\.wav', 
 		'outputfile':r'.+\.wav' }
-timeslanguage = {'now':''}
+
+parser = argparse.ArgumentParser(description="A script to generate EAS messages")
+parser.add_argument("-v", "--ver", "--version", action='version', 
+	version="EASEncode Version {0}/Core version {1}".format(program_version,
+		eastestgen_core_version) )
+parser.add_argument("-o", "--org", dest="originator",  
+	help="set the message originator", default='EAS')
+parser.add_argument("-e", "--event", dest="event", 
+	help="set the event type", required=True)
+parser.add_argument("-f", "--fips", dest="fips", nargs='+', metavar=('FIPS',
+        'FIPS2'), help="set the destination fips codes", required=True)
+parser.add_argument("-d", "--dur", dest="duration",
+	help="set the event duration", required=True)
+parser.add_argument("-t", "--start", dest="timestamp", default="now",
+	help="override the start timestamp, default is NOW")
+parser.add_argument("-c", "--call", dest="callsign",
+	help="set the originator call letters or id", required=True)
+parser.add_argument("-a", "--audio-in", dest="audioin", type=str,
+	help="insert audio file between EAS header and eom; max length"
+	" is 2 minutes")
+parser.add_argument('outputfile', metavar='OUTPUT.WAV', type=str)
+
+try:
+    args = parser.parse_args()
+except Exception as inst:
+    print inst
+    parser.exit()
+
+
+timeslanguage = {r'now': time.time(), r'tomorrow': time.time() + 24 * 60 * 60,
+	         r'1 days*': time.time() + 24 * 60 * 60  }
 numCh = 2
 peakLevel = -10
 sampWidth = 16
@@ -92,17 +98,24 @@ def main():
 	
 	for ts_pattern in timeslanguage:
 	    if re.match(ts_pattern, args.timestamp, re.I):
-		ts_val = time.strftime('%j%H%M', time.gmtime())
-		#print ts_val
+		ts_val = time.strftime('%j%H%M', time.gmtime(timeslanguage[ts_pattern]))
+		print ts_val, ts_pattern
 	    else:
 		ts_val = time.strftime('%j%H%M', time.gmtime())
 	if len(args.fips) > 32:
 	    print "WARNING: only 32 FIPS codes allowed. Truncating..."
 	if len(args.callsign) > 8:
 	    print "WARNING: callsign max width is 8 characters. Truncating..."
+	if args.audioin is not None:
+	    infile = wave.open(args.audioin, 'rb')
+	    print infile.getparams()
+	    msgaudio = infile.readframes(infile.getnframes())
+	    infile.close()
+	else:
+	    infile = None
 	data = generateEASpcmData(args.originator, args.event, args.fips, 
 		args.duration, ts_val, args.callsign, sampRate, sampWidth, 
-		peakLevel, numCh)
+		peakLevel, numCh, msgaudio)
 	file = wave.open(args.outputfile, 'wb')
 	file.setparams( (numCh, sampWidth/8 , sampRate, sampRate, 'NONE', '') )
 	file.writeframes(data)

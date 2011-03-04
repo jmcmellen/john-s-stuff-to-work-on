@@ -3,7 +3,7 @@ from afsk import *
 eastestgen_core_version = "1.0"
 
 def generateEASpcmData(org, event, fips, eventDuration, timestamp, stationId, sampRate, sampWidth, 
-	                peakLevel, numCh):
+	                peakLevel, numCh, msgaudio):
     "Put together info to generate an EAS message"
 
     markF = 2083.3
