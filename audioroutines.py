@@ -7,7 +7,7 @@ def getFIRrectFilterCoeff(fc, sampRate, filterLen=20):
     'y(n) = w0 * x(n) + w1 * x(n-1) + ...'
 
     ft = float(fc) / sampRate
-    print ft
+    #print ft
     m = float(filterLen - 1)
 
     weights = []
@@ -95,3 +95,47 @@ def generateSimplePCMToneData(startfreq, endfreq, sampRate, duration, sampWidth,
 	    pcm_data += struct.pack('<h', sample)
 
     return pcm_data
+
+def generateDualTonePCMData(freq1, freq2, sampRate, duration, sampWidth, peakLevel, numCh):
+    """Generate a string of binary data formatted as a PCM sample stream. Mix two freq
+    together such as in alert tones or DTMF"""
+
+    phase = 0 * pi
+    level = convertdbFStoInt(peakLevel, sampWidth)
+    pcm_data = ''
+    fade_len = int(0.001 * sampRate) * 0
+    numSamples = int( round( sampRate * duration))
+
+    #print duration * sampRate
+
+    for i in range(0, numSamples):
+	fade = 1.0
+	if i < fade_len:
+	    fade = 0.5 * (1 - math.cos(pi * i / (fade_len - 1)))
+	elif i > (numSamples - fade_len):
+	    fade = 0.5 * (1 - math.cos(pi * (numSamples - i) / (fade_len - 1))) 
+	for ch in range(numCh):
+	    sample =  int(( fade * level * (0.5 * math.sin(
+	                   (freq1 * 2 * pi * i)/ sampRate + phase) +
+			   0.5 * math.sin((freq2 * 2 * pi * i)/ sampRate + phase) )))
+	    #print sample
+	    pcm_data += struct.pack('<h', sample)
+
+    return pcm_data
+
+def main():
+    import wave
+
+    numCh = 1
+    peakLevel = -10
+    sampWidth = 16
+    sampRate = 44100
+
+    data = generateDualTonePCMData(853, 960, sampRate, 8, sampWidth, peakLevel, numCh)
+    fileout = wave.open( 'test.wav', 'wb')
+    fileout.setparams( (numCh, sampWidth/8, sampRate, sampRate, 'NONE', '') )
+    fileout.writeframes(data)
+    fileout.close()
+
+if __name__ == "__main__":
+    main()
